@@ -1,4 +1,4 @@
-{ lib, buildGoModule, fetchFromGitea, mage, writeShellScriptBin, nixosTests }:
+{ lib, buildGoModule, fetchFromGitea, mage, writeShellScriptBin }:
 
 buildGoModule rec {
   pname = "vikunja-api";
@@ -44,8 +44,6 @@ buildGoModule rec {
     install -Dt $out/bin vikunja
     runHook postInstall
   '';
-
-  passthru.tests.vikunja = nixosTests.vikunja;
 
   meta = {
     description = "API of the Vikunja to-do list app";
