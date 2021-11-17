@@ -4,6 +4,10 @@
 , avahi, libjack2, libasyncns, lirc, dbus
 , sbc, bluez5, udev, openssl, fftwFloat
 , soxr, speexdsp, systemd, webrtc-audio-processing
+, intltool
+
+, meson, ninja, libatomic_ops,  json_c, gettext 
+, valgrind, tdb, gtk3, orc, elogind
 
 , x11Support ? false
 
@@ -31,16 +35,21 @@
 
 stdenv.mkDerivation rec {
   name = "${if libOnly then "lib" else ""}pulseaudio-${version}";
-  version = "14.2";
+  version = "15.0";
 
   src = fetchurl {
     url = "http://freedesktop.org/software/pulseaudio/releases/pulseaudio-${version}.tar.xz";
-    sha256 = "sha256-ddP3dCwa5EkEmkyIkA5FS4s1DsqoxUTzSIolYqn/ZvE=";
+    sha256 = "1851rg4h6sjwanvd294hn52z321rc6vbs4gbfrlw53597dx8h2x4";
   };
 
   outputs = [ "out" "dev" ];
 
-  nativeBuildInputs = [ pkg-config autoreconfHook makeWrapper perlPackages.perl perlPackages.XMLParser ];
+  nativeBuildInputs = [
+    pkg-config #autoreconfHook makeWrapper 
+    perlPackages.perl perlPackages.XMLParser intltool
+    meson ninja libsndfile libatomic_ops speexdsp libtool json_c gettext
+    valgrind tdb gtk3 orc elogind
+  ];
 
   propagatedBuildInputs =
     lib.optionals stdenv.isLinux [ libcap ];
@@ -61,43 +70,10 @@ stdenv.mkDerivation rec {
       ++ lib.optional zeroconfSupport  avahi
   );
 
-  prePatch = ''
-    substituteInPlace bootstrap.sh \
-      --replace pkg-config $PKG_CONFIG
+  buildPhase = ''
+    meson build
+    ninja -C build
   '';
-
-  autoreconfPhase = ''
-    # Performs an autoreconf
-    patchShebangs bootstrap.sh
-    NOCONFIGURE=1 ./bootstrap.sh
-
-    # Move the udev rules under $(prefix).
-    sed -i "src/Makefile.in" \
-        -e "s|udevrulesdir[[:blank:]]*=.*$|udevrulesdir = $out/lib/udev/rules.d|g"
-
-    # don't install proximity-helper as root and setuid
-    sed -i "src/Makefile.in" \
-        -e "s|chown root|true |" \
-        -e "s|chmod r+s |true |"
-  '';
-
-  configureFlags =
-    [ "--disable-solaris"
-      "--disable-jack"
-      "--disable-oss-output"
-    ] ++ lib.optional (!ossWrapper) "--disable-oss-wrapper" ++
-    [ "--localstatedir=/var"
-      "--sysconfdir=/etc"
-      "--with-access-group=audio"
-      "--with-bash-completion-dir=${placeholder "out"}/share/bash-completions/completions"
-    ]
-    ++ lib.optional (jackaudioSupport && !libOnly) "--enable-jack"
-    ++ lib.optionals stdenv.isDarwin [
-      "--with-mac-sysroot=/"
-      "--disable-neon-opt"
-    ]
-    ++ lib.optional (stdenv.isLinux && useSystemd) "--with-systemduserunitdir=${placeholder "out"}/lib/systemd/user"
-    ++ lib.optional (stdenv.buildPlatform != stdenv.hostPlatform) "--disable-gsettings";
 
   enableParallelBuilding = true;
 
