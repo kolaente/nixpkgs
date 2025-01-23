@@ -5,6 +5,7 @@ To update discourse, do the following:
 2. Run `./update.py print-diffs` and update the nginx settings and
    backend settings accordingly. If you don't know how to, ask for
    help - do not skip this step!
+   The nginx config for this module is located in nixos/modules/services/web-apps/discourse.nix
 3. Run `./update.py update`.
 4. Run `nix build -L -f ../../../../ discourse.tests` to make sure the
    update works. Also test manually, if possible.

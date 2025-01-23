@@ -34,9 +34,8 @@
   procps,
   rsync,
   icu,
+  pnpm,
   fetchYarnDeps,
-  yarn,
-  fixup-yarn-lock,
   nodePackages,
   nodejs_18,
   jq,
@@ -48,13 +47,13 @@
 }@args:
 
 let
-  version = "3.3.2";
+  version = "3.4.0.beta3";
 
   src = fetchFromGitHub {
     owner = "discourse";
     repo = "discourse";
     rev = "v${version}";
-    sha256 = "sha256-FaPcUta5z/8oasw+9zGBRZnUVYD8eCo1t/XwwsFoSM8=";
+    sha256 = "sha256-+tMZb++0kRGnsEznsegTpa1kdWUqxjpGRo3irjBMMGI=";
   };
 
   ruby = ruby_3_2;
@@ -228,13 +227,17 @@ let
     ];
   };
 
-  assets = stdenv.mkDerivation {
+  assets = stdenv.mkDerivation (finalAttrs: {
     pname = "discourse-assets";
     inherit version src;
 
-    yarnOfflineCache = fetchYarnDeps {
-      yarnLock = src + "/yarn.lock";
-      hash = "sha256-cSQofaULCmPuWGxS+hK4KlRq9lSkCPiYvhax9X6Dor8=";
+    pnpmDeps = pnpm.fetchDeps {
+      inherit (finalAttrs)
+        pname
+        version
+        src
+        ;
+      hash = "sha256-D2dOyYsdsNV1ZSQdjpy6rfoix7yBACEHj/2XyHb7HWE=";
     };
 
     nativeBuildInputs = runtimeDeps ++ [
@@ -242,10 +245,9 @@ let
       redis
       uglify-js
       terser
-      yarn
       jq
       moreutils
-      fixup-yarn-lock
+      pnpm.configHook
     ];
 
     outputs = [
@@ -300,12 +302,14 @@ let
       # Install runtime and devDependencies.
       # The dev deps are necessary for generating the theme-transpiler executed as dependent task
       # assets:precompile:theme_transpiler before db:migrate and unfortunately also in the runtime
-      yarn_install $yarnOfflineCache yarn.lock
+      pnpm install
 
       # Patch before running postinstall hook script
       patchShebangs node_modules/
       patchShebangs --build app/assets/javascripts
-      yarn --offline --cwd app/assets/javascripts run postinstall
+      cd app/assets/javascripts
+      pnpm run postinstall
+      cd ../../..
       export SSL_CERT_FILE=${cacert}/etc/ssl/certs/ca-bundle.crt
 
       redis-server >/dev/null &
@@ -351,7 +355,7 @@ let
 
       runHook postInstall
     '';
-  };
+  });
 
   discourse = stdenv.mkDerivation {
     pname = "discourse";

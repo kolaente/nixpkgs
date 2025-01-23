@@ -1,5 +1,5 @@
 #!/usr/bin/env nix-shell
-#! nix-shell -i python3 -p "python3.withPackages (ps: with ps; [ requests click click-log packaging ])" bundix bundler nix-update nurl prefetch-yarn-deps
+#! nix-shell -i python3 -p "python3.withPackages (ps: with ps; [ requests click click-log packaging ])" bundix bundler nix-update nurl
 from __future__ import annotations
 
 import click
@@ -86,11 +86,12 @@ class DiscourseRepo:
 
         return self._latest_commit_sha
 
-    def get_yarn_lock_hash(self, rev: str, path: str):
-        yarnLockText = self.get_file(path, rev)
+    def get_pnpm_lock_hash(self, rev: str, path: str):
+        return "0000000000000000000000000000000000000000000000000000"
+        pnpmLockText = self.get_file(path, rev)
         with tempfile.NamedTemporaryFile(mode='w') as lockFile:
-            lockFile.write(yarnLockText)
-            hash = subprocess.check_output(['prefetch-yarn-deps', lockFile.name]).decode().strip()
+            lockFile.write(pnpmLockText)
+            hash = subprocess.check_output(['prefetch-pnpm-deps', lockFile.name]).decode().strip()
             return subprocess.check_output(["nix", "hash", "to-sri", "--type", "sha256", hash]).decode().strip()
 
     def get_file(self, filepath, rev):
@@ -233,13 +234,13 @@ def update(rev):
 
     _call_nix_update('discourse', version.version)
 
-    old_yarn_hash = _nix_eval('discourse.assets.yarnOfflineCache.outputHash')
-    new_yarn_hash = repo.get_yarn_lock_hash(version.tag, "yarn.lock")
-    click.echo(f"Updating yarn lock hash: {old_yarn_hash} -> {new_yarn_hash}")
+    old_pnpm_hash = "0000000000000000000000000000000000000000000000000000"
+    new_pnpm_hash = repo.get_pnpm_lock_hash(version.tag, "pnpm-lock.yaml")
+    click.echo(f"Updating pnpm lock hash: {old_pnpm_hash} -> {new_pnpm_hash}")
 
     with open(Path(__file__).parent / "default.nix", 'r+') as f:
         content = f.read()
-        content = content.replace(old_yarn_hash, new_yarn_hash)
+        content = content.replace(old_pnpm_hash, new_pnpm_hash)
         f.seek(0)
         f.write(content)
         f.truncate()
